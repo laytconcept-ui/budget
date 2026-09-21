@@ -5,18 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>ميزانية العائلة</title>
 
-  <!-- إعدادات ملء الشاشة للهواتف لمنع ظهور شريط المتصفح وتنبيهات جوجل -->
+  <!-- إعدادات ملء الشاشة للهواتف لتشغيله كتطبيق مستقل -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="ميزانية العائلة">
   <meta name="theme-color" content="#020617">
 
-  <!-- أيقونة التطبيق الرسمية -->
+  <!-- أيقونة التطبيق -->
   <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/2382/2382461.png">
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2382/2382461.png">
 
-  <!-- ملف تعريف التطبيق المدمج (Manifest) لتفعيل التثبيت كـ PWA حقيقي على أندرويد -->
+  <!-- ملف تعريف التطبيق PWA -->
   <link rel="manifest" href='data:application/manifest+json,{
     "name": "ميزانية العائلة",
     "short_name": "الميزانية",
@@ -55,7 +55,11 @@
   </style>
 </head>
 <body>
-  <!-- تضمين رابط تطبيقك الخاص مباشرة وبدون الحاجة لتعديل أي حرف -->
-  <iframe src="https://script.google.com/macros/s/AKfycbzBPivIuoXf74anBZ__opOBNcRRPUv0HSezlminp3MVwMDYN-lXewjvKWg-fOjprT_k/exec"></iframe>
+  <!-- تضمين التطبيق مع إذن الوصول للميكروفون -->
+  <iframe 
+    src="https://script.google.com/macros/s/AKfycbzBPivIuoXf74anBZ__opOBNcRRPUv0HSezlminp3MVwMDYN-lXewjvKWg-fOjprT_k/exec" 
+    allow="microphone; camera" 
+    allowfullscreen>
+  </iframe>
 </body>
 </html>
