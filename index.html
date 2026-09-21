@@ -5,18 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>ميزانية العائلة</title>
 
-  <!-- إعدادات ملء الشاشة للهواتف لتشغيله كتطبيق مستقل -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="ميزانية العائلة">
   <meta name="theme-color" content="#020617">
 
-  <!-- أيقونة التطبيق -->
   <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/2382/2382461.png">
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2382/2382461.png">
 
-  <!-- ملف تعريف التطبيق PWA -->
   <link rel="manifest" href='data:application/manifest+json,{
     "name": "ميزانية العائلة",
     "short_name": "الميزانية",
@@ -35,16 +32,13 @@
   }'>
 
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       width: 100%;
       height: 100%;
       overflow: hidden;
       background-color: #020617;
+      position: relative;
     }
     iframe {
       width: 100%;
@@ -55,11 +49,66 @@
   </style>
 </head>
 <body>
-  <!-- تضمين التطبيق مع إذن الوصول للميكروفون -->
+
+  <!-- الإطار المتضمن للتطبيق -->
   <iframe 
+    id="appFrame"
     src="https://script.google.com/macros/s/AKfycbzBPivIuoXf74anBZ__opOBNcRRPUv0HSezlminp3MVwMDYN-lXewjvKWg-fOjprT_k/exec" 
     allow="microphone; camera" 
     allowfullscreen>
   </iframe>
+
+  <script>
+    const frame = document.getElementById('appFrame');
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let isListening = false;
+
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'ar-MA'; // اللهجة المغربية والعربية
+      recognition.interimResults = false;
+
+      recognition.onstart = function() {
+        isListening = true;
+        frame.contentWindow.postMessage({ type: 'VOICE_RECORD_START' }, '*');
+      };
+
+      recognition.onresult = function(event) {
+        const text = event.results[0][0].transcript;
+        frame.contentWindow.postMessage({ type: 'VOICE_RECORD_RESULT', transcript: text }, '*');
+      };
+
+      recognition.onerror = function(e) {
+        console.error("Voice Error:", e);
+        frame.contentWindow.postMessage({ type: 'VOICE_RECORD_STOP' }, '*');
+        isListening = false;
+      };
+
+      recognition.onend = function() {
+        isListening = false;
+        frame.contentWindow.postMessage({ type: 'VOICE_RECORD_STOP' }, '*');
+      };
+    }
+
+    // استقبال أمر الضغط على زر الميكروفون من داخل التطبيق
+    window.addEventListener('message', function(event) {
+      if (event.data && event.data.action === 'TOGGLE_VOICE') {
+        if (!SpeechRecognition) {
+          alert('المتصفح الحالي لا يدعم التعرف الصوتي المباشر.');
+          return;
+        }
+        if (isListening) {
+          recognition.stop();
+        } else {
+          try {
+            recognition.start();
+          } catch(err) {
+            console.error(err);
+          }
+        }
+      }
+    });
+  </script>
 </body>
 </html>
