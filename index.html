@@ -29,7 +29,6 @@
       flex-direction: column;
     }
 
-    /* شريط علوي بارز يستحيل أن يغطيه الـ iframe */
     .top-voice-bar {
       width: 100%;
       background: #fef08a;
@@ -50,9 +49,12 @@
       display: flex;
       align-items: center;
       gap: 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 60%;
     }
 
-    /* زر التسجيل الصوتي المباشر */
     .voice-btn-top {
       background: linear-gradient(135deg, #10b981, #059669);
       color: #ffffff;
@@ -68,6 +70,7 @@
       cursor: pointer;
       outline: none;
       transition: all 0.2s ease;
+      flex-shrink: 0;
     }
 
     .voice-btn-top:active {
@@ -86,14 +89,6 @@
       100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
     }
 
-    .status-badge {
-      font-size: 11px;
-      font-weight: 700;
-      color: #b45309;
-      display: none;
-    }
-
-    /* مساحة التطبيق الكاملة المتبقية */
     .iframe-container {
       flex: 1;
       width: 100%;
@@ -111,7 +106,6 @@
 </head>
 <body>
 
-  <!-- الشريط العلوي الحقيقي (Native DOM) - يستحيل إخفاؤه -->
   <div class="top-voice-bar">
     <div class="app-title">
       <span>🎙️</span>
@@ -124,10 +118,10 @@
     </button>
   </div>
 
-  <!-- حاوية إطار التطبيق -->
   <div class="iframe-container">
     <iframe 
       id="appFrame"
+      name="appFrame"
       src="https://script.google.com/macros/s/AKfycbzBPivIuoXf74anBZ__opOBNcRRPUv0HSezlminp3MVwMDYN-lXewjvKWg-fOjprT_k/exec" 
       allow="microphone; camera" 
       allowfullscreen>
@@ -152,29 +146,42 @@
 
     if (SpeechRecognition) {
       recognition = new SpeechRecognition();
-      recognition.lang = 'ar-MA'; // الدارجة المغربية
+      recognition.lang = 'ar-MA';
       recognition.interimResults = false;
 
       recognition.onstart = function() {
         isListening = true;
         directVoiceBtn.classList.add('recording-active');
         micBtnText.innerText = "توقف";
-        headerStatusText.innerText = "🎧 استمع إليك... تحدث الآن";
+        headerStatusText.innerText = "🎧 استمع إليك...";
         headerStatusText.style.color = "#dc2626";
       };
 
       recognition.onresult = function(event) {
         const text = event.results[0][0].transcript;
-        headerStatusText.innerText = "✅ تم الاستماع: " + text;
+        headerStatusText.innerText = text;
         headerStatusText.style.color = "#15803d";
         
-        // إرسال النص فوراً إلى التطبيق في الداخل
-        frame.contentWindow.postMessage({ type: 'VOICE_RECORD_RESULT', transcript: text }, '*');
+        // إرسال النص بأكثر من طريقة لضمان اختراق الـ iframe
+        const payload = JSON.stringify({ type: 'VOICE_RECORD_RESULT', transcript: text });
+        
+        try {
+          // طريقة 1: الإرسال للكائن المباشر
+          frame.contentWindow.postMessage(payload, '*');
+          frame.contentWindow.postMessage({ type: 'VOICE_RECORD_RESULT', transcript: text }, '*');
+        } catch(e) {}
+
+        try {
+          // طريقة 2: عبر window.frames
+          if (window.frames['appFrame']) {
+            window.frames['appFrame'].postMessage(payload, '*');
+            window.frames['appFrame'].postMessage({ type: 'VOICE_RECORD_RESULT', transcript: text }, '*');
+          }
+        } catch(e) {}
       };
 
       recognition.onerror = function(err) {
-        console.error("Speech Error:", err);
-        headerStatusText.innerText = "⚠️ تعذر التقاط الصوت، حاول ثانية";
+        headerStatusText.innerText = "⚠️ لم أسمعك جيداً، أعد المحاولة";
         headerStatusText.style.color = "#b45309";
         stopRecording();
       };
@@ -186,7 +193,7 @@
 
     function startDirectVoice() {
       if (!SpeechRecognition) {
-        alert('متصفحك الحالي لا يدعم الصوت. يرجى فتح التطبيق عبر متصفح Google Chrome.');
+        alert('المتصفح الحالي لا يدعم الصوت. استخدم متصفح Google Chrome.');
         return;
       }
 
@@ -195,9 +202,7 @@
       } else {
         try {
           recognition.start();
-        } catch(e) {
-          console.error(e);
-        }
+        } catch(e) {}
       }
     }
 
@@ -205,18 +210,7 @@
       isListening = false;
       directVoiceBtn.classList.remove('recording-active');
       micBtnText.innerText = "تحدث للتسجيل";
-      setTimeout(() => {
-        headerStatusText.innerText = "المساعد الصوتي المباشر";
-        headerStatusText.style.color = "#854d0e";
-      }, 3000);
     }
-
-    // دعم الضغط المتبادل من داخل الـ iframe أيضاً
-    window.addEventListener('message', function(event) {
-      if (event.data && event.data.action === 'TOGGLE_VOICE') {
-        startDirectVoice();
-      }
-    });
   </script>
 </body>
 </html>
