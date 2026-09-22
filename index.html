@@ -2,43 +2,34 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>ميزانية العائلة</title>
 
+  <!-- إعدادات الشاشة الكاملة وإخفاء شريط المتصفح -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="ميزانية العائلة">
-  <meta name="theme-color" content="#020617">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="الميزانية">
+  <meta name="theme-color" content="#fef9c3">
 
   <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/2382/2382461.png">
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2382/2382461.png">
 
-  <link rel="manifest" href='data:application/manifest+json,{
-    "name": "ميزانية العائلة",
-    "short_name": "الميزانية",
-    "start_url": ".",
-    "display": "standalone",
-    "background_color": "#020617",
-    "theme_color": "#020617",
-    "icons": [
-      {
-        "src": "https://cdn-icons-png.flaticon.com/512/2382/2382461.png",
-        "sizes": "512x512",
-        "type": "image/png",
-        "purpose": "any maskable"
-      }
-    ]
-  }'>
+  <!-- الربط بملف الـ Manifest المستقل -->
+  <link rel="manifest" href="manifest.json">
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
-      width: 100%;
-      height: 100%;
+      width: 100vw;
+      height: 100vh;
       overflow: hidden;
-      background-color: #020617;
-      position: relative;
+      background-color: #fef9c3;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
     }
     iframe {
       width: 100%;
@@ -50,7 +41,6 @@
 </head>
 <body>
 
-  <!-- الإطار المتضمن للتطبيق -->
   <iframe 
     id="appFrame"
     src="https://script.google.com/macros/s/AKfycbzBPivIuoXf74anBZ__opOBNcRRPUv0HSezlminp3MVwMDYN-lXewjvKWg-fOjprT_k/exec" 
@@ -59,6 +49,15 @@
   </iframe>
 
   <script>
+    // تفعيل Service Worker المطلوب إجبارياً من كروم لوضع ملء الشاشة Standalone
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('data:text/javascript;base64,c2VsZi5hZGRFdmVudExpc3RlbmVyKCdmaXRjaCcsIGZ1bmN0aW9uKGV2ZW50KSB7fSk7')
+          .catch(() => {});
+      });
+    }
+
+    // جسر الصوت عبر postMessage
     const frame = document.getElementById('appFrame');
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
@@ -66,7 +65,7 @@
 
     if (SpeechRecognition) {
       recognition = new SpeechRecognition();
-      recognition.lang = 'ar-MA'; // اللهجة المغربية والعربية
+      recognition.lang = 'ar-MA';
       recognition.interimResults = false;
 
       recognition.onstart = function() {
@@ -79,8 +78,7 @@
         frame.contentWindow.postMessage({ type: 'VOICE_RECORD_RESULT', transcript: text }, '*');
       };
 
-      recognition.onerror = function(e) {
-        console.error("Voice Error:", e);
+      recognition.onerror = function() {
         frame.contentWindow.postMessage({ type: 'VOICE_RECORD_STOP' }, '*');
         isListening = false;
       };
@@ -91,21 +89,13 @@
       };
     }
 
-    // استقبال أمر الضغط على زر الميكروفون من داخل التطبيق
     window.addEventListener('message', function(event) {
       if (event.data && event.data.action === 'TOGGLE_VOICE') {
-        if (!SpeechRecognition) {
-          alert('المتصفح الحالي لا يدعم التعرف الصوتي المباشر.');
-          return;
-        }
+        if (!SpeechRecognition) return;
         if (isListening) {
           recognition.stop();
         } else {
-          try {
-            recognition.start();
-          } catch(err) {
-            console.error(err);
-          }
+          try { recognition.start(); } catch(err) {}
         }
       }
     });
