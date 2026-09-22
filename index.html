@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>ميزانية العائلة</title>
 
-  <!-- إعدادات الشاشة الكاملة وإخفاء شريط المتصفح -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -14,12 +13,13 @@
 
   <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/2382/2382461.png">
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2382/2382461.png">
-
-  <!-- الربط بملف الـ Manifest المستقل -->
   <link rel="manifest" href="manifest.json">
 
+  <!-- خط كايرو -->
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700;800;900&display=swap" rel="stylesheet">
+
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
     html, body {
       width: 100vw;
       height: 100vh;
@@ -28,8 +28,6 @@
       position: fixed;
       top: 0;
       left: 0;
-      right: 0;
-      bottom: 0;
     }
     iframe {
       width: 100%;
@@ -37,9 +35,68 @@
       border: none;
       display: block;
     }
+
+    /* زر ميكروفون عائم في الأسفل متاح بلمسة مباشرة */
+    .floating-mic-btn {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 9999;
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+      border: none;
+      padding: 12px 18px;
+      border-radius: 50px;
+      font-size: 13px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      outline: none;
+    }
+    .floating-mic-btn:active {
+      transform: scale(0.94);
+    }
+    .recording-active {
+      background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+      animation: pulse-red 1.2s infinite;
+      box-shadow: 0 8px 25px rgba(239, 68, 68, 0.5) !important;
+    }
+    @keyframes pulse-red {
+      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+      70% { box-shadow: 0 0 0 14px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+    .toast-status {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.9);
+      color: #fef08a;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      z-index: 10000;
+      display: none;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
   </style>
 </head>
 <body>
+
+  <!-- إشعار الاستماع -->
+  <div id="toastStatus" class="toast-status">🎧 تحدث الآن... مثلاً: "50 درهم خضار"</div>
+
+  <!-- زر الميكروفون المباشر -->
+  <button id="directVoiceBtn" class="floating-mic-btn" onclick="startDirectVoice()">
+    <span style="font-size: 16px;">🎙️</span>
+    <span id="micBtnText">إدخال صوتي</span>
+  </button>
 
   <iframe 
     id="appFrame"
@@ -49,16 +106,17 @@
   </iframe>
 
   <script>
-    // تفعيل Service Worker المطلوب إجبارياً من كروم لوضع ملء الشاشة Standalone
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('data:text/javascript;base64,c2VsZi5hZGRFdmVudExpc3RlbmVyKCdmaXRjaCcsIGZ1bmN0aW9uKGV2ZW50KSB7fSk7')
-          .catch(() => {});
+        navigator.serviceWorker.register('data:text/javascript;base64,c2VsZi5hZGRFdmVudExpc3RlbmVyKCdmaXRjaCcsIGZ1bmN0aW9uKGV2ZW50KSB7fSk7').catch(() => {});
       });
     }
 
-    // جسر الصوت عبر postMessage
     const frame = document.getElementById('appFrame');
+    const directVoiceBtn = document.getElementById('directVoiceBtn');
+    const micBtnText = document.getElementById('micBtnText');
+    const toastStatus = document.getElementById('toastStatus');
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
     let isListening = false;
@@ -70,33 +128,55 @@
 
       recognition.onstart = function() {
         isListening = true;
-        frame.contentWindow.postMessage({ type: 'VOICE_RECORD_START' }, '*');
+        directVoiceBtn.classList.add('recording-active');
+        micBtnText.innerText = "توقف";
+        toastStatus.style.display = "block";
       };
 
       recognition.onresult = function(event) {
         const text = event.results[0][0].transcript;
+        // إرسال الكلمات للنموذج داخل الإطار
         frame.contentWindow.postMessage({ type: 'VOICE_RECORD_RESULT', transcript: text }, '*');
       };
 
-      recognition.onerror = function() {
-        frame.contentWindow.postMessage({ type: 'VOICE_RECORD_STOP' }, '*');
-        isListening = false;
+      recognition.onerror = function(err) {
+        console.error("Speech Error:", err);
+        stopRecording();
       };
 
       recognition.onend = function() {
-        isListening = false;
-        frame.contentWindow.postMessage({ type: 'VOICE_RECORD_STOP' }, '*');
+        stopRecording();
       };
     }
 
+    function startDirectVoice() {
+      if (!SpeechRecognition) {
+        alert('ميزة التعرف الصوتي غير مدعومة في هذا المتصفح. استخدم Google Chrome.');
+        return;
+      }
+
+      if (isListening) {
+        recognition.stop();
+      } else {
+        try {
+          recognition.start();
+        } catch(e) {
+          console.error(e);
+        }
+      }
+    }
+
+    function stopRecording() {
+      isListening = false;
+      directVoiceBtn.classList.remove('recording-active');
+      micBtnText.innerText = "إدخال صوتي";
+      toastStatus.style.display = "none";
+    }
+
+    // استقبال رغبة الضغط حتى لو ضغط المستخدم على الزر داخل الـ iframe
     window.addEventListener('message', function(event) {
       if (event.data && event.data.action === 'TOGGLE_VOICE') {
-        if (!SpeechRecognition) return;
-        if (isListening) {
-          recognition.stop();
-        } else {
-          try { recognition.start(); } catch(err) {}
-        }
+        startDirectVoice();
       }
     });
   </script>
