@@ -143,6 +143,7 @@
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
     let isListening = false;
+    let resetTimer = null;
 
     if (SpeechRecognition) {
       recognition = new SpeechRecognition();
@@ -151,37 +152,31 @@
 
       recognition.onstart = function() {
         isListening = true;
+        clearTimeout(resetTimer);
         directVoiceBtn.classList.add('recording-active');
         micBtnText.innerText = "توقف";
-        headerStatusText.innerText = "🎧 استمع إليك...";
+        headerStatusText.innerText = "🎧 جارٍ الاستماع...";
         headerStatusText.style.color = "#dc2626";
       };
 
       recognition.onresult = function(event) {
         const text = event.results[0][0].transcript;
-        headerStatusText.innerText = text;
+        headerStatusText.innerText = "✅ " + text;
         headerStatusText.style.color = "#15803d";
         
-        // إرسال النص بأكثر من طريقة لضمان اختراق الـ iframe
-        const payload = JSON.stringify({ type: 'VOICE_RECORD_RESULT', transcript: text });
-        
-        try {
-          // طريقة 1: الإرسال للكائن المباشر
-          frame.contentWindow.postMessage(payload, '*');
-          frame.contentWindow.postMessage({ type: 'VOICE_RECORD_RESULT', transcript: text }, '*');
-        } catch(e) {}
+        // إرسال عميق ومكرر لاختراق إطارات Google Sandbox
+        broadcastToAllFrames(text);
 
-        try {
-          // طريقة 2: عبر window.frames
-          if (window.frames['appFrame']) {
-            window.frames['appFrame'].postMessage(payload, '*');
-            window.frames['appFrame'].postMessage({ type: 'VOICE_RECORD_RESULT', transcript: text }, '*');
-          }
-        } catch(e) {}
+        // إرجاع الشريط لحالته الأصلية بعد 3 ثوانٍ لكي لا يظل معلقاً
+        clearTimeout(resetTimer);
+        resetTimer = setTimeout(() => {
+          headerStatusText.innerText = "المساعد الصوتي المباشر";
+          headerStatusText.style.color = "#854d0e";
+        }, 3500);
       };
 
       recognition.onerror = function(err) {
-        headerStatusText.innerText = "⚠️ لم أسمعك جيداً، أعد المحاولة";
+        headerStatusText.innerText = "⚠️ حاول مرة أخرى";
         headerStatusText.style.color = "#b45309";
         stopRecording();
       };
@@ -191,9 +186,38 @@
       };
     }
 
+    // دالة إرسال ذكية تخترق جميع مستويات iframe في Google Apps Script
+    function broadcastToAllFrames(text) {
+      const msgObject = { type: 'VOICE_RECORD_RESULT', transcript: text };
+      const msgString = JSON.stringify(msgObject);
+
+      // 1. الإرسال للإطار المباشر
+      try {
+        frame.contentWindow.postMessage(msgObject, '*');
+        frame.contentWindow.postMessage(msgString, '*');
+      } catch(e) {}
+
+      // 2. فحص والنزول إلى الإطارات الفرعية المحتملة (Nested frames)
+      try {
+        for (let i = 0; i < window.frames.length; i++) {
+          try {
+            window.frames[i].postMessage(msgObject, '*');
+            window.frames[i].postMessage(msgString, '*');
+            // داخل الإطار الفرعي إن وجد
+            if (window.frames[i].frames) {
+              for (let j = 0; j < window.frames[i].frames.length; j++) {
+                window.frames[i].frames[j].postMessage(msgObject, '*');
+                window.frames[i].frames[j].postMessage(msgString, '*');
+              }
+            }
+          } catch(errInner) {}
+        }
+      } catch(e) {}
+    }
+
     function startDirectVoice() {
       if (!SpeechRecognition) {
-        alert('المتصفح الحالي لا يدعم الصوت. استخدم متصفح Google Chrome.');
+        alert('يرجى استخدام متصفح Google Chrome.');
         return;
       }
 
