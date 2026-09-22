@@ -15,95 +15,124 @@
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2382/2382461.png">
   <link rel="manifest" href="manifest.json">
 
-  <!-- خط كايرو -->
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700;800;900&display=swap" rel="stylesheet">
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
+    
     html, body {
-      width: 100vw;
-      height: 100vh;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
       background-color: #fef9c3;
-      position: fixed;
-      top: 0;
-      left: 0;
+      display: flex;
+      flex-direction: column;
     }
+
+    /* شريط علوي بارز يستحيل أن يغطيه الـ iframe */
+    .top-voice-bar {
+      width: 100%;
+      background: #fef08a;
+      border-bottom: 2px solid #fde047;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      z-index: 99999;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    .app-title {
+      font-size: 13px;
+      font-weight: 900;
+      color: #854d0e;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* زر التسجيل الصوتي المباشر */
+    .voice-btn-top {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #ffffff;
+      border: none;
+      padding: 7px 14px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 3px 10px rgba(16, 185, 129, 0.3);
+      cursor: pointer;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .voice-btn-top:active {
+      transform: scale(0.95);
+    }
+
+    .recording-active {
+      background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+      box-shadow: 0 3px 12px rgba(239, 68, 68, 0.5) !important;
+      animation: pulse-red 1.2s infinite;
+    }
+
+    @keyframes pulse-red {
+      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+
+    .status-badge {
+      font-size: 11px;
+      font-weight: 700;
+      color: #b45309;
+      display: none;
+    }
+
+    /* مساحة التطبيق الكاملة المتبقية */
+    .iframe-container {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
     iframe {
       width: 100%;
       height: 100%;
       border: none;
       display: block;
     }
-
-    /* زر ميكروفون عائم في الأسفل متاح بلمسة مباشرة */
-    .floating-mic-btn {
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      z-index: 9999;
-      background: linear-gradient(135deg, #10b981, #059669);
-      color: white;
-      border: none;
-      padding: 12px 18px;
-      border-radius: 50px;
-      font-size: 13px;
-      font-weight: 800;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
-      cursor: pointer;
-      transition: all 0.2s ease;
-      outline: none;
-    }
-    .floating-mic-btn:active {
-      transform: scale(0.94);
-    }
-    .recording-active {
-      background: linear-gradient(135deg, #ef4444, #dc2626) !important;
-      animation: pulse-red 1.2s infinite;
-      box-shadow: 0 8px 25px rgba(239, 68, 68, 0.5) !important;
-    }
-    @keyframes pulse-red {
-      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-      70% { box-shadow: 0 0 0 14px rgba(239, 68, 68, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-    }
-    .toast-status {
-      position: fixed;
-      bottom: 80px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(15, 23, 42, 0.9);
-      color: #fef08a;
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 700;
-      z-index: 10000;
-      display: none;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    }
   </style>
 </head>
 <body>
 
-  <!-- إشعار الاستماع -->
-  <div id="toastStatus" class="toast-status">🎧 تحدث الآن... مثلاً: "50 درهم خضار"</div>
+  <!-- الشريط العلوي الحقيقي (Native DOM) - يستحيل إخفاؤه -->
+  <div class="top-voice-bar">
+    <div class="app-title">
+      <span>🎙️</span>
+      <span id="headerStatusText">المساعد الصوتي المباشر</span>
+    </div>
+    
+    <button id="directVoiceBtn" class="voice-btn-top" onclick="startDirectVoice()">
+      <span id="micIcon" style="font-size: 14px;">🎤</span>
+      <span id="micBtnText">تحدث للتسجيل</span>
+    </button>
+  </div>
 
-  <!-- زر الميكروفون المباشر -->
-  <button id="directVoiceBtn" class="floating-mic-btn" onclick="startDirectVoice()">
-    <span style="font-size: 16px;">🎙️</span>
-    <span id="micBtnText">إدخال صوتي</span>
-  </button>
-
-  <iframe 
-    id="appFrame"
-    src="https://script.google.com/macros/s/AKfycbzBPivIuoXf74anBZ__opOBNcRRPUv0HSezlminp3MVwMDYN-lXewjvKWg-fOjprT_k/exec" 
-    allow="microphone; camera" 
-    allowfullscreen>
-  </iframe>
+  <!-- حاوية إطار التطبيق -->
+  <div class="iframe-container">
+    <iframe 
+      id="appFrame"
+      src="https://script.google.com/macros/s/AKfycbzBPivIuoXf74anBZ__opOBNcRRPUv0HSezlminp3MVwMDYN-lXewjvKWg-fOjprT_k/exec" 
+      allow="microphone; camera" 
+      allowfullscreen>
+    </iframe>
+  </div>
 
   <script>
     if ('serviceWorker' in navigator) {
@@ -115,7 +144,7 @@
     const frame = document.getElementById('appFrame');
     const directVoiceBtn = document.getElementById('directVoiceBtn');
     const micBtnText = document.getElementById('micBtnText');
-    const toastStatus = document.getElementById('toastStatus');
+    const headerStatusText = document.getElementById('headerStatusText');
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
@@ -123,24 +152,30 @@
 
     if (SpeechRecognition) {
       recognition = new SpeechRecognition();
-      recognition.lang = 'ar-MA';
+      recognition.lang = 'ar-MA'; // الدارجة المغربية
       recognition.interimResults = false;
 
       recognition.onstart = function() {
         isListening = true;
         directVoiceBtn.classList.add('recording-active');
         micBtnText.innerText = "توقف";
-        toastStatus.style.display = "block";
+        headerStatusText.innerText = "🎧 استمع إليك... تحدث الآن";
+        headerStatusText.style.color = "#dc2626";
       };
 
       recognition.onresult = function(event) {
         const text = event.results[0][0].transcript;
-        // إرسال الكلمات للنموذج داخل الإطار
+        headerStatusText.innerText = "✅ تم الاستماع: " + text;
+        headerStatusText.style.color = "#15803d";
+        
+        // إرسال النص فوراً إلى التطبيق في الداخل
         frame.contentWindow.postMessage({ type: 'VOICE_RECORD_RESULT', transcript: text }, '*');
       };
 
       recognition.onerror = function(err) {
         console.error("Speech Error:", err);
+        headerStatusText.innerText = "⚠️ تعذر التقاط الصوت، حاول ثانية";
+        headerStatusText.style.color = "#b45309";
         stopRecording();
       };
 
@@ -151,7 +186,7 @@
 
     function startDirectVoice() {
       if (!SpeechRecognition) {
-        alert('ميزة التعرف الصوتي غير مدعومة في هذا المتصفح. استخدم Google Chrome.');
+        alert('متصفحك الحالي لا يدعم الصوت. يرجى فتح التطبيق عبر متصفح Google Chrome.');
         return;
       }
 
@@ -169,11 +204,14 @@
     function stopRecording() {
       isListening = false;
       directVoiceBtn.classList.remove('recording-active');
-      micBtnText.innerText = "إدخال صوتي";
-      toastStatus.style.display = "none";
+      micBtnText.innerText = "تحدث للتسجيل";
+      setTimeout(() => {
+        headerStatusText.innerText = "المساعد الصوتي المباشر";
+        headerStatusText.style.color = "#854d0e";
+      }, 3000);
     }
 
-    // استقبال رغبة الضغط حتى لو ضغط المستخدم على الزر داخل الـ iframe
+    // دعم الضغط المتبادل من داخل الـ iframe أيضاً
     window.addEventListener('message', function(event) {
       if (event.data && event.data.action === 'TOGGLE_VOICE') {
         startDirectVoice();
