@@ -2,9 +2,9 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>ميزانية العائلة</title>
-
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -15,135 +15,426 @@
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2382/2382461.png">
   <link rel="manifest" href="manifest.json">
 
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700;800;900&display=swap" rel="stylesheet">
-
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
-    
-    html, body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background-color: #fef9c3;
-      display: flex;
-      flex-direction: column;
+    body { 
+      font-family: 'Cairo', sans-serif; 
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
     }
-
-    .top-voice-bar {
-      width: 100%;
-      background: #fef08a;
-      border-bottom: 2px solid #fde047;
-      padding: 8px 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-shrink: 0;
-      z-index: 99999;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    }
-
-    .app-title {
-      font-size: 13px;
-      font-weight: 900;
-      color: #854d0e;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      max-width: 60%;
-    }
-
-    .voice-btn-top {
-      background: linear-gradient(135deg, #10b981, #059669);
-      color: #ffffff;
-      border: none;
-      padding: 7px 14px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 800;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      box-shadow: 0 3px 10px rgba(16, 185, 129, 0.3);
-      cursor: pointer;
-      outline: none;
-      transition: all 0.2s ease;
-      flex-shrink: 0;
-    }
-
-    .voice-btn-top:active {
-      transform: scale(0.95);
-    }
-
-    .recording-active {
-      background: linear-gradient(135deg, #ef4444, #dc2626) !important;
-      box-shadow: 0 3px 12px rgba(239, 68, 68, 0.5) !important;
-      animation: pulse-red 1.2s infinite;
-    }
-
-    @keyframes pulse-red {
-      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+    input, select { font-size: 15px !important; font-family: 'Cairo', sans-serif; }
+    .pulse-record { animation: pulse-light 1.2s infinite; }
+    @keyframes pulse-light {
+      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
       70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
       100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
     }
-
-    .iframe-container {
-      flex: 1;
-      width: 100%;
-      height: 100%;
-      position: relative;
-    }
-
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-      display: block;
-    }
+    .custom-scroll::-webkit-scrollbar { display: none; }
+    
+    #successToast { transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+    .toast-hidden { opacity: 0; transform: translate(-50%, -30px) scale(0.95); pointer-events: none; }
+    .toast-visible { opacity: 1; transform: translate(-50%, 0) scale(1); pointer-events: auto; }
   </style>
 </head>
-<body>
+<body class="bg-amber-50/70 text-slate-800 min-h-screen pb-24 selection:bg-amber-500 selection:text-white relative">
 
-  <div class="top-voice-bar">
-    <div class="app-title">
-      <span>🎙️</span>
-      <span id="headerStatusText">المساعد الصوتي المباشر</span>
+  <!-- إشعار التأكيد الذكي (Toast Notification) -->
+  <div id="successToast" class="fixed top-4 left-1/2 z-50 toast-hidden bg-emerald-600 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 border border-emerald-400/40 backdrop-blur-md">
+    <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-lg font-black shrink-0">✓</div>
+    <div>
+      <h4 class="text-xs font-black text-white" id="toastTitle">تم التسجيل بنجاح!</h4>
+      <p class="text-[11px] font-semibold text-emerald-100" id="toastMessage">تم خصم المصروف وتحديث الحسابات فوراً.</p>
     </div>
-    
-    <button id="directVoiceBtn" class="voice-btn-top" onclick="startDirectVoice()">
-      <span id="micIcon" style="font-size: 14px;">🎤</span>
-      <span id="micBtnText">تحدث للتسجيل</span>
-    </button>
   </div>
 
-  <div class="iframe-container">
-    <iframe 
-      id="appFrame"
-      name="appFrame"
-      src="https://script.google.com/macros/s/AKfycbzBPivIuoXf74anBZ__opOBNcRRPUv0HSezlminp3MVwMDYN-lXewjvKWg-fOjprT_k/exec" 
-      allow="microphone; camera" 
-      allowfullscreen>
-    </iframe>
+  <!-- شريط العنوان -->
+  <header class="bg-amber-100/80 backdrop-blur-md sticky top-0 z-30 border-b border-amber-200/70 px-4 py-3 shadow-[0_2px_10px_rgba(217,119,6,0.05)]">
+    <div class="max-w-md mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center text-xl shadow-md shadow-amber-200">
+          💰
+        </div>
+        <div>
+          <h1 class="text-base font-black text-slate-900 leading-tight tracking-tight">ميزانية العائلة</h1>
+          <p class="text-[11px] font-semibold text-amber-800/70">تتبع ذكي ومتزامن للمصاريف</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <button onclick="openAnalysisModal()" title="التحليل المالي" class="px-3 py-1.5 bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-700 hover:to-orange-600 active:scale-95 text-xs font-bold rounded-xl text-white flex items-center gap-1 shadow-sm shadow-amber-300 transition duration-150">
+          <span>📊</span> التحليل
+        </button>
+        <button onclick="openBudgetModal()" title="إدارة الميزانيات" class="px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 active:scale-95 text-xs font-bold rounded-xl text-white flex items-center gap-1 shadow-sm shadow-indigo-200 transition duration-150">
+          <span>⚙️</span> الأسقف
+        </button>
+        <button onclick="loadData()" title="تحديث" class="p-2 bg-white/90 hover:bg-white active:scale-95 text-amber-700 rounded-xl transition duration-150 border border-amber-200 shadow-sm">
+          🔄
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-md mx-auto px-4 mt-4 space-y-4">
+
+    <!-- البطاقات المالية العلوية -->
+    <div class="grid grid-cols-2 gap-3">
+      <div class="bg-white/95 border border-amber-200/80 p-4 rounded-3xl shadow-[0_4px_12px_rgba(245,158,11,0.05)]">
+        <span class="text-xs font-bold text-slate-400">المصروف الفعلي</span>
+        <p id="totalSpent" class="text-2xl font-black text-rose-600 mt-1 tracking-tight">0 <span class="text-xs font-bold text-slate-400">د.م</span></p>
+      </div>
+      <div class="bg-white/95 border border-amber-200/80 p-4 rounded-3xl shadow-[0_4px_12px_rgba(245,158,11,0.05)]">
+        <span class="text-xs font-bold text-slate-400">الرصيد المتاح</span>
+        <p id="remainingCash" class="text-2xl font-black text-emerald-600 mt-1 tracking-tight">0 <span class="text-xs font-bold text-slate-400">د.م</span></p>
+      </div>
+    </div>
+
+    <!-- أزرار الاختصار السريع للمصاريف اليومية -->
+    <section class="space-y-1.5">
+      <p class="text-[11px] font-bold text-amber-900/60 px-1">⚡ تسجيل سريع بلمسة واحدة:</p>
+      <div class="flex items-center gap-2 overflow-x-auto pb-1 custom-scroll">
+        <button onclick="quickFill('الأكل وحاجيات المنزل', 15, 'خبز وحليب')" class="whitespace-nowrap px-3 py-1.5 bg-white/90 border border-amber-200 hover:border-amber-400 active:scale-95 rounded-xl text-xs font-bold text-slate-700 shadow-sm transition">
+          🥛 خبز وحليب (15 د.م)
+        </button>
+        <button onclick="quickFill('الأكل وحاجيات المنزل', 70, 'خضار وفواكه')" class="whitespace-nowrap px-3 py-1.5 bg-white/90 border border-amber-200 hover:border-amber-400 active:scale-95 rounded-xl text-xs font-bold text-slate-700 shadow-sm transition">
+          🥕 خضار وسوق (70 د.م)
+        </button>
+        <button onclick="quickFill('تنقل ومحروقات وصيانة', 100, 'وقود')" class="whitespace-nowrap px-3 py-1.5 bg-white/90 border border-amber-200 hover:border-amber-400 active:scale-95 rounded-xl text-xs font-bold text-slate-700 shadow-sm transition">
+          ⛽ بنزين (100 د.م)
+        </button>
+        <button onclick="quickFill('الأكل وحاجيات المنزل', 15, 'قهوة')" class="whitespace-nowrap px-3 py-1.5 bg-white/90 border border-amber-200 hover:border-amber-400 active:scale-95 rounded-xl text-xs font-bold text-slate-700 shadow-sm transition">
+          ☕ قهوة (15 د.م)
+        </button>
+      </div>
+    </section>
+
+    <!-- بطاقة إضافة مصروف فوري -->
+    <section class="bg-white/95 border border-amber-200/80 p-5 rounded-3xl shadow-[0_4px_20px_rgba(245,158,11,0.06)]">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+          <span class="text-amber-500">✍️</span> تسجيل مصروف جديد
+        </h2>
+        <!-- زر الميكروفون المباشر الأصلي بدون أي وسيط -->
+        <button type="button" id="voiceBtn" onclick="toggleVoiceRecognition()" class="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-sm active:scale-95 transition">
+          <span id="voiceIcon">🎙️</span> <span id="voiceText">تحدث للتسجيل</span>
+        </button>
+      </div>
+
+      <div id="voiceStatus" class="hidden text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 p-2.5 rounded-2xl mb-3 text-center">
+        🎧 جارٍ الاستماع مباشرة... تحدث بالدارجة (مثلاً: <strong>"50 درهم خضار"</strong>)
+      </div>
+
+      <form id="expenseForm" onsubmit="submitExpense(event)" class="space-y-3.5">
+        
+        <!-- خانة الباب المستهدف بالأخضر البارز -->
+        <div class="p-2.5 bg-emerald-50 border-2 border-emerald-500/80 rounded-2xl shadow-sm transition-all duration-300">
+          <label class="block text-xs font-black text-emerald-900 mb-1.5 flex items-center gap-1.5">
+            <span class="text-emerald-600 text-sm">📌</span> الباب المستهدف (حدد الباب أولاً)
+          </label>
+          <select id="catSelect" required class="w-full bg-white border border-emerald-300 text-emerald-950 font-black rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-inner">
+            <option value="">جاري تحميل الأبواب...</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1.5">المبلغ (د.م)</label>
+            <input type="number" step="0.5" id="amountInput" placeholder="0.00" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-sm font-extrabold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1.5">من صرف؟</label>
+            <select id="spentBySelect" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition">
+              <option value="جلال">جلال 👨</option>
+              <option value="وسيلة">وسيلة 👩</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">بيان المشتريات</label>
+          <input type="text" id="noteInput" placeholder="مثلاً: خضار، لحوم، صيدلية، قهوة..." class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition">
+        </div>
+
+        <button type="submit" id="submitBtn" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-[0.98] text-white font-extrabold py-3 rounded-2xl shadow-md shadow-emerald-200 transition duration-150 flex items-center justify-center gap-2">
+          <span>+</span> تسجيل واقتطاع فوري
+        </button>
+      </form>
+    </section>
+
+    <!-- قائمة متابعة الأبواب مع تنبيهات الأسقف الملونة -->
+    <section class="space-y-3">
+      <div class="flex items-center justify-between px-1">
+        <h3 class="text-xs font-extrabold text-amber-900/60 uppercase tracking-wider">حالة الأبواب والميزانية</h3>
+        <button onclick="openBudgetModal()" class="text-xs font-bold text-amber-700 hover:text-amber-900">تعديل الأسقف</button>
+      </div>
+      <div id="budgetList" class="space-y-2.5">
+        <p class="text-center text-xs font-semibold text-amber-700/60 py-4">جاري قراءة البيانات...</p>
+      </div>
+    </section>
+
+    <!-- سجل آخر العمليات المسجلة + زر الحذف السريع 🗑️ -->
+    <section class="bg-white/95 border border-amber-200/80 p-5 rounded-3xl shadow-[0_4px_20px_rgba(245,158,11,0.06)]">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-black text-slate-900 flex items-center gap-2">
+          <span class="text-amber-500">📋</span> آخر المصاريف المسجلة
+        </h3>
+        <button onclick="confirmReset()" class="text-[11px] text-rose-600 hover:text-rose-700 font-extrabold px-2.5 py-1 bg-rose-50 rounded-xl transition border border-rose-200/60">
+          📦 أرشفة وبدء شهر جديد
+        </button>
+      </div>
+      <div id="txList" class="divide-y divide-amber-100/70 max-h-72 overflow-y-auto">
+        <p class="text-center text-xs font-semibold text-amber-700/60 py-3">لا توجد عمليات بعد.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- نافذة التحليل المالي -->
+  <div id="analysisModal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 bg-amber-950/40 backdrop-blur-sm">
+    <div class="bg-white rounded-3xl w-full max-w-md max-h-[92vh] flex flex-col p-5 space-y-4 shadow-2xl border border-amber-100">
+      <div class="flex items-center justify-between border-b border-amber-100 pb-3">
+        <div>
+          <h3 class="font-black text-base text-slate-900 flex items-center gap-2">
+            <span>📊</span> التحليل المالي والترشيد
+          </h3>
+          <p class="text-xs font-semibold text-slate-400">توزيع المصاريف ومقارنة الاستهلاك</p>
+        </div>
+        <button onclick="closeAnalysisModal()" class="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-slate-500 hover:bg-amber-100 text-sm font-bold">✕</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto space-y-4 pr-1">
+        <div class="bg-gradient-to-r from-blue-50 to-pink-50 border border-slate-200/80 p-4 rounded-3xl space-y-2.5">
+          <h4 class="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
+            <span>👥</span> مقارنة المصاريف: جلال 👨 vs وسيلة 👩
+          </h4>
+          <div class="grid grid-cols-2 gap-2 text-center pt-1">
+            <div class="bg-white/90 p-2.5 rounded-2xl border border-blue-200">
+              <span class="text-[11px] font-bold text-blue-700">جلال 👨</span>
+              <p id="jalalSpentText" class="text-base font-black text-blue-900 mt-0.5">0 د.م</p>
+              <span id="jalalSpentPercent" class="text-[10px] text-blue-600 font-semibold">(0%)</span>
+            </div>
+            <div class="bg-white/90 p-2.5 rounded-2xl border border-pink-200">
+              <span class="text-[11px] font-bold text-pink-700">وسيلة 👩</span>
+              <p id="wassilaSpentText" class="text-base font-black text-pink-900 mt-0.5">0 د.م</p>
+              <span id="wassilaSpentPercent" class="text-[10px] text-pink-600 font-semibold">(0%)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-amber-50/50 border border-amber-200/70 p-4 rounded-3xl flex flex-col items-center">
+          <h4 class="text-xs font-extrabold text-slate-700 mb-2">توزيع المصاريف حسب الأبواب</h4>
+          <div class="w-56 h-56">
+            <canvas id="expenseChart"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-amber-50/50 border border-amber-200/70 rounded-3xl p-4">
+          <h4 class="text-xs font-extrabold text-slate-700 mb-2.5">جدول نسب الاستهلاك</h4>
+          <div class="overflow-x-auto">
+            <table class="w-full text-right text-xs">
+              <thead>
+                <tr class="text-amber-800/60 border-b border-amber-200/70 pb-1 font-bold">
+                  <th class="py-1">الباب</th>
+                  <th class="py-1 text-center">المبلغ</th>
+                  <th class="py-1 text-left">النسبة</th>
+                </tr>
+              </thead>
+              <tbody id="analysisTableBody" class="divide-y divide-amber-100 text-slate-700 font-semibold"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="bg-rose-50 border border-rose-200 rounded-3xl p-4 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-black text-rose-700 flex items-center gap-1.5">
+              <span>🚨</span> مصاريف كمالية / غير ضرورية
+            </h4>
+            <span id="nonEssentialTotal" class="text-xs font-black text-rose-700 bg-rose-200/60 px-2.5 py-0.5 rounded-full">0 د.م</span>
+          </div>
+          <p class="text-[11px] font-semibold text-slate-600 leading-relaxed" id="aiAdviceText">جاري فحص المشتريات...</p>
+          <div id="nonEssentialList" class="space-y-1.5 max-h-36 overflow-y-auto pt-1"></div>
+        </div>
+      </div>
+
+      <div class="pt-2 border-t border-amber-100">
+        <button onclick="closeAnalysisModal()" class="w-full py-3 bg-amber-50 hover:bg-amber-100 active:scale-[0.98] text-slate-700 font-bold rounded-2xl text-xs transition">
+          إغلاق
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة تعديل الميزانية -->
+  <div id="budgetModal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 bg-amber-950/40 backdrop-blur-sm">
+    <div class="bg-white rounded-3xl w-full max-w-md max-h-[92vh] flex flex-col p-5 space-y-3.5 shadow-2xl border border-amber-100">
+      <div class="flex items-center justify-between border-b border-amber-100 pb-2.5">
+        <div>
+          <h3 class="font-black text-base text-slate-900">إعداد الميزانية والتوازن</h3>
+          <p class="text-xs font-semibold text-slate-400">موازنة تلقائية تحافظ على سقف راتبك القار</p>
+        </div>
+        <button onclick="closeBudgetModal()" class="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-slate-500 hover:bg-amber-100 text-sm font-bold">✕</button>
+      </div>
+
+      <div class="bg-amber-50 border border-amber-200 p-3 rounded-2xl space-y-2">
+        <div class="flex justify-between items-center">
+          <label class="text-xs font-black text-amber-900 flex items-center gap-1.5">
+            <span>✨</span> الدخل القار المستهدف (د.م):
+          </label>
+          <button onclick="autoBalanceDifference()" class="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 underline">
+            ⚖️ موازنة على الادخار
+          </button>
+        </div>
+        <div class="flex gap-2">
+          <input type="number" id="monthlyIncomeInput" value="13500" class="flex-1 bg-white border border-amber-300 rounded-xl px-3 py-1.5 text-sm font-extrabold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500" oninput="recalculateBudgetBalance()">
+          <button onclick="suggestAIBudget()" class="px-3 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-sm transition">
+            اقتراح ذكي ✨
+          </button>
+        </div>
+      </div>
+
+      <div id="balanceSummaryBox" class="p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold transition-all duration-300 bg-emerald-50 border-emerald-200 text-emerald-800">
+        <div>
+          <span>الموزع حالياً: </span>
+          <strong id="allocatedSumText">13,500</strong> د.م
+        </div>
+        <div id="balanceDifferenceText" class="px-2 py-0.5 rounded-lg text-[11px] bg-emerald-100 text-emerald-900">
+          ✅ متطابقة 100% مع الراتب
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-y-auto space-y-2 pr-1" id="editableBudgetsContainer"></div>
+
+      <div class="pt-2 border-t border-amber-100 flex gap-2">
+        <button onclick="addCustomCategoryRow()" class="px-3 py-2 bg-amber-50 hover:bg-amber-100 active:scale-95 text-amber-800 rounded-xl text-xs font-black transition border border-amber-200">
+          + باب جديد
+        </button>
+        <button onclick="saveAllBudgets()" id="saveBudgetBtn" class="flex-1 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-95 text-white font-black rounded-xl text-xs shadow-md shadow-emerald-100 transition">
+          حفظ وتطبيق
+        </button>
+      </div>
+    </div>
   </div>
 
   <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('data:text/javascript;base64,c2VsZi5hZGRFdmVudExpc3RlbmVyKCdmaXRjaCcsIGZ1bmN0aW9uKGV2ZW50KSB7fSk7').catch(() => {});
-      });
+    // رابط السكريبت الخاص بك كـ API
+    const API_URL = "https://script.google.com/macros/s/AKfycbzBPivIuoXf74anBZ__opOBNcRRPUv0HSezlminp3MVwMDYN-lXewjvKWg-fOjprT_k/exec";
+
+    let globalData = null;
+    let chartInstance = null;
+    let toastTimeout = null;
+
+    const nonEssentialKeywords = [
+      'مقهى', 'قهوة', 'مطعم', 'سناك', 'وجبة سريعة', 'طاكوس', 'بيتزا', 
+      'حلويات', 'شوكولاتة', 'مثلجات', 'ترفيه', 'سينما', 'لعبة', 'ألعاب', 
+      'ملابس كمالية', 'شراء زائد', 'عطر', 'كماليات', 'إكسسوار'
+    ];
+
+    function showToast(title, message) {
+      const toast = document.getElementById('successToast');
+      document.getElementById('toastTitle').innerText = title;
+      document.getElementById('toastMessage').innerText = message;
+      toast.classList.remove('toast-hidden');
+      toast.classList.add('toast-visible');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('toast-visible');
+        toast.classList.add('toast-hidden');
+      }, 3500);
     }
 
-    const frame = document.getElementById('appFrame');
-    const directVoiceBtn = document.getElementById('directVoiceBtn');
-    const micBtnText = document.getElementById('micBtnText');
-    const headerStatusText = document.getElementById('headerStatusText');
+    // قراءة البيانات عبر API
+    async function loadData() {
+      try {
+        const response = await fetch(`${API_URL}?action=getData`);
+        const data = await response.json();
+        renderData(data);
+      } catch (err) {
+        console.error("Fetch Error:", err);
+      }
+    }
 
+    function quickFill(catKeyword, amount, note) {
+      document.getElementById('amountInput').value = amount;
+      document.getElementById('noteInput').value = note;
+      let select = document.getElementById('catSelect');
+      for (let i = 0; i < select.options.length; i++) {
+        if (select.options[i].text.includes(catKeyword)) {
+          select.selectedIndex = i;
+          break;
+        }
+      }
+    }
+
+    function renderData(data) {
+      globalData = data;
+      document.getElementById('totalSpent').innerHTML = data.totalSpent.toLocaleString() + ' <span class="text-xs font-bold text-slate-400">د.م</span>';
+      document.getElementById('remainingCash').innerHTML = data.remainingCash.toLocaleString() + ' <span class="text-xs font-bold text-slate-400">د.م</span>';
+
+      let catSelect = document.getElementById('catSelect');
+      catSelect.innerHTML = '<option value="" disabled selected>👉 اضغط هنا لاختيار الباب...</option>';
+      
+      let budgetHtml = '';
+      data.budgets.forEach(b => {
+        catSelect.innerHTML += `<option value="${b.category}">${b.category}</option>`;
+        let rate = b.limit > 0 ? Math.min(Math.round((b.spent / b.limit) * 100), 100) : 0;
+        let colorClass = rate >= 100 ? 'bg-rose-500' : (rate >= 80 ? 'bg-amber-500' : 'bg-emerald-600');
+        let alertBadge = rate >= 100 ? 
+          `<span class="text-[10px] bg-rose-100 text-rose-700 font-black px-2.5 py-0.5 rounded-full border border-rose-200">⚠️ تم استهلاك السقف!</span>` : 
+          (rate >= 80 ? `<span class="text-[10px] bg-amber-100 text-amber-800 font-black px-2.5 py-0.5 rounded-full border border-amber-200">اقترب من النفاد (${rate}%)</span>` : 
+          `<span class="text-[10px] bg-emerald-100 text-emerald-800 font-black px-2.5 py-0.5 rounded-full border border-emerald-200">متاح: ${b.remaining.toLocaleString()} د.م</span>`);
+
+        budgetHtml += `
+          <div class="bg-white/95 border border-amber-200/80 p-4 rounded-3xl space-y-2.5 shadow-[0_4px_12px_rgba(245,158,11,0.04)]">
+            <div class="flex justify-between items-center">
+              <span class="font-extrabold text-sm text-slate-900">${b.category}</span>
+              ${alertBadge}
+            </div>
+            <div class="w-full bg-amber-100/60 rounded-full h-2.5 overflow-hidden">
+              <div class="h-2.5 rounded-full ${colorClass} transition-all duration-500" style="width: ${rate}%"></div>
+            </div>
+            <div class="flex justify-between text-[11px] font-bold text-slate-500">
+              <span>المخصص: ${b.limit.toLocaleString()} د.م</span>
+              <span>صُرِف: <strong class="text-slate-800">${b.spent.toLocaleString()} د.م</strong> (${rate}%)</span>
+            </div>
+          </div>
+        `;
+      });
+      document.getElementById('budgetList').innerHTML = budgetHtml;
+
+      let txHtml = '';
+      if (!data.transactions || data.transactions.length === 0) {
+        txHtml = '<p class="text-center text-xs font-semibold text-amber-700/60 py-3">لا توجد عمليات بعد.</p>';
+      } else {
+        data.transactions.forEach(t => {
+          let badgeColor = t.spentBy === 'جلال' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-pink-100 text-pink-700 border-pink-200';
+          txHtml += `
+            <div class="py-3 flex items-center justify-between gap-2">
+              <div class="flex-1 min-w-0">
+                <p class="text-xs font-extrabold text-slate-900 truncate">${t.category}</p>
+                <p class="text-[11px] font-semibold text-slate-400 truncate mt-0.5">
+                  <span class="px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${badgeColor}">${t.spentBy}</span> • ${t.date} ${t.note ? '• ' + t.note : ''}
+                </p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-black text-rose-600 whitespace-nowrap">-${t.amount.toLocaleString()} د.م</span>
+                <button onclick="confirmDeleteExpense('${t.id}', ${t.amount})" title="تراجع وحذف" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition active:scale-95 text-xs">
+                  🗑️
+                </button>
+              </div>
+            </div>
+          `;
+        });
+      }
+      document.getElementById('txList').innerHTML = txHtml;
+    }
+
+    // ==========================================
+    // محرك التعرف الصوتي المباشر 100% (Native Web Speech)
+    // ==========================================
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
     let isListening = false;
-    let resetTimer = null;
 
     if (SpeechRecognition) {
       recognition = new SpeechRecognition();
@@ -152,89 +443,372 @@
 
       recognition.onstart = function() {
         isListening = true;
-        clearTimeout(resetTimer);
-        directVoiceBtn.classList.add('recording-active');
-        micBtnText.innerText = "توقف";
-        headerStatusText.innerText = "🎧 جارٍ الاستماع...";
-        headerStatusText.style.color = "#dc2626";
+        const btn = document.getElementById('voiceBtn');
+        btn.className = "px-3 py-1.5 bg-rose-500 text-white rounded-xl text-xs font-extrabold flex items-center gap-1.5 pulse-record transition shadow-sm";
+        document.getElementById('voiceText').innerText = "توقف";
+        document.getElementById('voiceStatus').classList.remove('hidden');
       };
 
       recognition.onresult = function(event) {
         const text = event.results[0][0].transcript;
-        headerStatusText.innerText = "✅ " + text;
-        headerStatusText.style.color = "#15803d";
-        
-        // إرسال عميق ومكرر لاختراق إطارات Google Sandbox
-        broadcastToAllFrames(text);
-
-        // إرجاع الشريط لحالته الأصلية بعد 3 ثوانٍ لكي لا يظل معلقاً
-        clearTimeout(resetTimer);
-        resetTimer = setTimeout(() => {
-          headerStatusText.innerText = "المساعد الصوتي المباشر";
-          headerStatusText.style.color = "#854d0e";
-        }, 3500);
+        parseVoiceInput(text);
       };
 
-      recognition.onerror = function(err) {
-        headerStatusText.innerText = "⚠️ حاول مرة أخرى";
-        headerStatusText.style.color = "#b45309";
-        stopRecording();
+      recognition.onerror = function() {
+        stopVoice();
       };
 
       recognition.onend = function() {
-        stopRecording();
+        stopVoice();
       };
     }
 
-    // دالة إرسال ذكية تخترق جميع مستويات iframe في Google Apps Script
-    function broadcastToAllFrames(text) {
-      const msgObject = { type: 'VOICE_RECORD_RESULT', transcript: text };
-      const msgString = JSON.stringify(msgObject);
-
-      // 1. الإرسال للإطار المباشر
-      try {
-        frame.contentWindow.postMessage(msgObject, '*');
-        frame.contentWindow.postMessage(msgString, '*');
-      } catch(e) {}
-
-      // 2. فحص والنزول إلى الإطارات الفرعية المحتملة (Nested frames)
-      try {
-        for (let i = 0; i < window.frames.length; i++) {
-          try {
-            window.frames[i].postMessage(msgObject, '*');
-            window.frames[i].postMessage(msgString, '*');
-            // داخل الإطار الفرعي إن وجد
-            if (window.frames[i].frames) {
-              for (let j = 0; j < window.frames[i].frames.length; j++) {
-                window.frames[i].frames[j].postMessage(msgObject, '*');
-                window.frames[i].frames[j].postMessage(msgString, '*');
-              }
-            }
-          } catch(errInner) {}
-        }
-      } catch(e) {}
-    }
-
-    function startDirectVoice() {
+    function toggleVoiceRecognition() {
       if (!SpeechRecognition) {
-        alert('يرجى استخدام متصفح Google Chrome.');
+        alert('ميزة الصوت تحتاج متصفح Google Chrome.');
         return;
       }
-
       if (isListening) {
         recognition.stop();
       } else {
-        try {
-          recognition.start();
-        } catch(e) {}
+        recognition.start();
       }
     }
 
-    function stopRecording() {
+    function stopVoice() {
       isListening = false;
-      directVoiceBtn.classList.remove('recording-active');
-      micBtnText.innerText = "تحدث للتسجيل";
+      const btn = document.getElementById('voiceBtn');
+      btn.className = "px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-sm active:scale-95 transition";
+      document.getElementById('voiceText').innerText = "تحدث للتسجيل";
+      document.getElementById('voiceStatus').classList.add('hidden');
     }
+
+    function extractAmountFromText(text) {
+      var clean = text.replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d));
+      var numMatch = clean.match(/\d+(\.\d+)?/);
+      if (numMatch) return parseFloat(numMatch[0]);
+
+      var wordsMap = {
+        'واحد': 1, 'جوج': 2, 'تلاتة': 3, 'تلاته': 3, 'ثلاثة': 3, 'ربعة': 4, 'اربعة': 4,
+        'خمسة': 5, 'خمسه': 5, 'ستة': 6, 'سته': 6, 'سبعة': 7, 'سبعه': 7, 'تمانية': 8, 'ثمانية': 8,
+        'تسعة': 9, 'تسعه': 9, 'عشرة': 10, 'عشره': 10, 'عشرين': 20, 'تلاتين': 30, 'ثلاثين': 30,
+        'ربعين': 40, 'اربعين': 40, 'خمسين': 50, 'ستين': 60, 'سبعين': 70, 'تمانين': 80, 'ثمانين': 80,
+        'تسعين': 90, 'مية': 100, 'مائة': 100, 'ميتين': 200, 'تلمية': 300, 'ربعمية': 400, 'خمسمية': 500
+      };
+
+      for (var word in wordsMap) {
+        if (clean.indexOf(word) !== -1) return wordsMap[word];
+      }
+      return null;
+    }
+
+    function parseVoiceInput(text) {
+      if (!text) return;
+
+      var noteInput = document.getElementById('noteInput');
+      noteInput.value = text;
+
+      var amountInput = document.getElementById('amountInput');
+      var amount = extractAmountFromText(text);
+      if (amount) amountInput.value = amount;
+
+      var lower = text.toLowerCase();
+      var select = document.getElementById('catSelect');
+      if (select) {
+        for (var i = 0; i < select.options.length; i++) {
+          var optText = select.options[i].text.toLowerCase();
+          if ((lower.indexOf('أكل') !== -1 || lower.indexOf('اكل') !== -1 || lower.indexOf('خضار') !== -1 || lower.indexOf('لحم') !== -1 || lower.indexOf('سوق') !== -1 || lower.indexOf('دجاج') !== -1 || lower.indexOf('حليب') !== -1 || lower.indexOf('خبز') !== -1 || lower.indexOf('قهوة') !== -1 || lower.indexOf('مرجان') !== -1) && optText.indexOf('أكل') !== -1) {
+            select.selectedIndex = i;
+            break;
+          } else if ((lower.indexOf('ضوء') !== -1 || lower.indexOf('ماء') !== -1 || lower.indexOf('إنترنت') !== -1 || lower.indexOf('انترنت') !== -1 || lower.indexOf('كراء') !== -1 || lower.indexOf('فاتورة') !== -1 || lower.indexOf('ويفي') !== -1) && optText.indexOf('سكن') !== -1) {
+            select.selectedIndex = i;
+            break;
+          } else if ((lower.indexOf('بنزين') !== -1 || lower.indexOf('مازوت') !== -1 || lower.indexOf('طاكسي') !== -1 || lower.indexOf('سيارة') !== -1 || lower.indexOf('غسل') !== -1 || lower.indexOf('كار') !== -1 || lower.indexOf('ليسانس') !== -1) && optText.indexOf('تنقل') !== -1) {
+            select.selectedIndex = i;
+            break;
+          } else if ((lower.indexOf('دواء') !== -1 || lower.indexOf('طبيب') !== -1 || lower.indexOf('صيدلية') !== -1 || lower.indexOf('فارماسي') !== -1 || lower.indexOf('تحاليل') !== -1 || lower.indexOf('فرماسيان') !== -1) && optText.indexOf('صحة') !== -1) {
+            select.selectedIndex = i;
+            break;
+          } else if ((lower.indexOf('مدرسة') !== -1 || lower.indexOf('كتب') !== -1 || lower.indexOf('دفاتر') !== -1 || lower.indexOf('أستاذ') !== -1 || lower.indexOf('تمدرس') !== -1) && optText.indexOf('مدرسة') !== -1) {
+            select.selectedIndex = i;
+            break;
+          }
+        }
+      }
+
+      noteInput.style.backgroundColor = '#dcfce7';
+      amountInput.style.backgroundColor = '#dcfce7';
+      setTimeout(() => {
+        noteInput.style.backgroundColor = '';
+        amountInput.style.backgroundColor = '';
+      }, 1200);
+    }
+
+    // إرسال المصروف عبر API
+    async function submitExpense(e) {
+      e.preventDefault();
+      var btn = document.getElementById('submitBtn');
+      var originalBtnText = btn.innerHTML;
+      btn.innerHTML = '<span>⏳</span> جاري الحفظ...';
+      btn.disabled = true;
+
+      var category = document.getElementById('catSelect').value;
+      var amount = document.getElementById('amountInput').value;
+      var spentBy = document.getElementById('spentBySelect').value;
+      var note = document.getElementById('noteInput').value;
+
+      try {
+        await fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'addExpense',
+            category: category,
+            amount: amount,
+            spentBy: spentBy,
+            note: note
+          })
+        });
+
+        document.getElementById('amountInput').value = '';
+        document.getElementById('noteInput').value = '';
+        btn.innerHTML = originalBtnText;
+        btn.disabled = false;
+        
+        showToast('✅ تم التسجيل بنجاح', `تم اقتطاع ${amount} د.م من (${category}) بواسطة ${spentBy}.`);
+        loadData();
+      } catch (err) {
+        btn.innerHTML = originalBtnText;
+        btn.disabled = false;
+        alert('تعذر الحفظ: ' + err.message);
+      }
+    }
+
+    async function confirmDeleteExpense(id, amount) {
+      if (confirm(`هل أنت متأكد من حذف هذا المصروف بقيمة (${amount} د.م) والتراجع عنه؟`)) {
+        await fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'deleteExpense', id: id })
+        });
+        showToast('تم الحذف بنجاح', `تم استرجاع مبلغ ${amount} د.م.`);
+        loadData();
+      }
+    }
+
+    // التحليل المالي
+    function openAnalysisModal() {
+      if (!globalData) return;
+      document.getElementById('analysisModal').classList.remove('hidden');
+      buildAnalysisViews();
+    }
+    function closeAnalysisModal() { document.getElementById('analysisModal').classList.add('hidden'); }
+
+    function buildAnalysisViews() {
+      var labels = [], spentValues = [], colors = ['#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b'];
+      var tableRows = '', total = globalData.totalSpent || 1;
+
+      var jSpent = globalData.spentByJalal || 0;
+      var wSpent = globalData.spentByWassila || 0;
+      var jPercent = globalData.totalSpent > 0 ? Math.round((jSpent / globalData.totalSpent) * 100) : 0;
+      var wPercent = globalData.totalSpent > 0 ? Math.round((wSpent / globalData.totalSpent) * 100) : 0;
+
+      document.getElementById('jalalSpentText').innerText = jSpent.toLocaleString() + ' د.م';
+      document.getElementById('jalalSpentPercent').innerText = '(' + jPercent + '%)';
+      document.getElementById('wassilaSpentText').innerText = wSpent.toLocaleString() + ' د.م';
+      document.getElementById('wassilaSpentPercent').innerText = '(' + wPercent + '%)';
+
+      globalData.budgets.forEach(function(b) {
+        if (b.spent > 0) {
+          labels.push(b.category);
+          spentValues.push(b.spent);
+        }
+        var percentage = ((b.spent / total) * 100).toFixed(1);
+        tableRows += `
+          <tr class="hover:bg-amber-50/50 transition">
+            <td class="py-2.5 font-bold text-slate-800">${b.category}</td>
+            <td class="py-2.5 text-center text-rose-600 font-extrabold">${b.spent.toLocaleString()} د.م</td>
+            <td class="py-2.5 text-left text-slate-500 font-bold">${percentage}%</td>
+          </tr>
+        `;
+      });
+      document.getElementById('analysisTableBody').innerHTML = tableRows;
+
+      var ctx = document.getElementById('expenseChart').getContext('2d');
+      if (chartInstance) chartInstance.destroy();
+
+      chartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels.length > 0 ? labels : ['لا مصاريف بعد'],
+          datasets: [{
+            data: spentValues.length > 0 ? spentValues : [1],
+            backgroundColor: spentValues.length > 0 ? colors : ['#fef3c7'],
+            borderWidth: 3,
+            borderColor: '#ffffff'
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '72%' }
+      });
+
+      var nonEssentialSpent = 0, nonEssentialItems = [];
+      globalData.transactions.forEach(function(t) {
+        var note = (t.note || '').toLowerCase(), cat = (t.category || '').toLowerCase();
+        if (nonEssentialKeywords.some(kw => note.indexOf(kw) !== -1 || cat.indexOf(kw) !== -1)) {
+          nonEssentialSpent += t.amount;
+          nonEssentialItems.push(t);
+        }
+      });
+
+      document.getElementById('nonEssentialTotal').innerText = nonEssentialSpent.toLocaleString() + ' د.م';
+      var listContainer = document.getElementById('nonEssentialList');
+      if (nonEssentialItems.length === 0) {
+        listContainer.innerHTML = '<p class="text-xs font-bold text-emerald-700">ممتاز! لم يتم رصد نفقات استهلاكية كمالية بارزة.</p>';
+        document.getElementById('aiAdviceText').innerHTML = '✅ <strong>توزيع متوازن:</strong> جميع المشتريات تقع ضمن الاحتياجات الأساسية.';
+      } else {
+        var itemsHtml = '';
+        nonEssentialItems.forEach(item => {
+          itemsHtml += `
+            <div class="flex justify-between items-center bg-white border border-rose-200 px-3 py-2 rounded-xl text-xs font-bold shadow-sm">
+              <span class="text-slate-800">${item.note || item.category} <span class="text-[10px] text-slate-400">(${item.spentBy})</span></span>
+              <span class="text-rose-600 font-extrabold">-${item.amount.toLocaleString()} د.م</span>
+            </div>
+          `;
+        });
+        listContainer.innerHTML = itemsHtml;
+        var ratio = ((nonEssentialSpent / total) * 100).toFixed(0);
+        document.getElementById('aiAdviceText').innerHTML = `⚠️ <strong>نصيحة ترشيد:</strong> تستهلك الكماليات الموضحة بالأحمر <strong>${ratio}%</strong> من المصاريف (<strong>${nonEssentialSpent.toLocaleString()} د.م</strong>).`;
+      }
+    }
+
+    // إدارة الأسقف
+    function openBudgetModal() {
+      var incomeInput = document.getElementById('monthlyIncomeInput');
+      incomeInput.value = (globalData && globalData.totalLimit > 0) ? globalData.totalLimit : 13500;
+      renderEditableBudgets(globalData ? globalData.budgets : []);
+      document.getElementById('budgetModal').classList.remove('hidden');
+    }
+    function closeBudgetModal() { document.getElementById('budgetModal').classList.add('hidden'); }
+
+    function renderEditableBudgets(list) {
+      var container = document.getElementById('editableBudgetsContainer');
+      container.innerHTML = '';
+      list.forEach(item => {
+        container.innerHTML += `
+          <div class="flex items-center gap-2 budget-row bg-amber-50/30 p-1.5 rounded-xl border border-amber-100">
+            <input type="text" value="${item.category}" class="flex-1 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-800 cat-name focus:ring-2 focus:ring-amber-500" placeholder="اسم الباب">
+            <input type="number" value="${item.limit}" oninput="recalculateBudgetBalance()" class="w-24 bg-white border border-slate-200 rounded-xl px-2 py-1.5 text-xs font-extrabold text-emerald-700 cat-limit focus:ring-2 focus:ring-amber-500" placeholder="السقف (د.م)">
+            <button onclick="this.parentElement.remove(); recalculateBudgetBalance();" class="text-slate-400 hover:text-rose-600 px-1 text-sm font-bold">✕</button>
+          </div>
+        `;
+      });
+      recalculateBudgetBalance();
+    }
+
+    function addCustomCategoryRow() {
+      var container = document.getElementById('editableBudgetsContainer');
+      var div = document.createElement('div');
+      div.className = 'flex items-center gap-2 budget-row bg-amber-50/30 p-1.5 rounded-xl border border-amber-100';
+      div.innerHTML = `
+        <input type="text" class="flex-1 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-800 cat-name focus:ring-2 focus:ring-amber-500" placeholder="اسم الباب الجديد">
+        <input type="number" value="0" oninput="recalculateBudgetBalance()" class="w-24 bg-white border border-slate-200 rounded-xl px-2 py-1.5 text-xs font-extrabold text-emerald-700 cat-limit focus:ring-2 focus:ring-amber-500" placeholder="السقف">
+        <button onclick="this.parentElement.remove(); recalculateBudgetBalance();" class="text-slate-400 hover:text-rose-600 px-1 text-sm font-bold">✕</button>
+      `;
+      container.appendChild(div);
+      recalculateBudgetBalance();
+    }
+
+    function recalculateBudgetBalance() {
+      var targetIncome = parseFloat(document.getElementById('monthlyIncomeInput').value) || 0;
+      var rows = document.querySelectorAll('.budget-row');
+      var currentTotal = 0;
+      rows.forEach(r => { currentTotal += (parseFloat(r.querySelector('.cat-limit').value) || 0); });
+      var diff = targetIncome - currentTotal;
+      document.getElementById('allocatedSumText').innerText = currentTotal.toLocaleString();
+      var box = document.getElementById('balanceSummaryBox'), diffTag = document.getElementById('balanceDifferenceText');
+
+      if (diff === 0) {
+        box.className = "p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold bg-emerald-50 border-emerald-200 text-emerald-800";
+        diffTag.className = "px-2 py-0.5 rounded-lg text-[11px] bg-emerald-100 text-emerald-900";
+        diffTag.innerHTML = "✅ متطابقة 100% مع الراتب";
+      } else if (diff > 0) {
+        box.className = "p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold bg-amber-50 border-amber-200 text-amber-900";
+        diffTag.className = "px-2 py-0.5 rounded-lg text-[11px] bg-amber-100 text-amber-900";
+        diffTag.innerHTML = `💡 باقي غير موزع: +${diff.toLocaleString()} د.م`;
+      } else {
+        box.className = "p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold bg-rose-50 border-rose-200 text-rose-800";
+        diffTag.className = "px-2 py-0.5 rounded-lg text-[11px] bg-rose-100 text-rose-900";
+        diffTag.innerHTML = `⚠️ تجاوزت الراتب بـ: ${Math.abs(diff).toLocaleString()} د.م`;
+      }
+    }
+
+    function autoBalanceDifference() {
+      var targetIncome = parseFloat(document.getElementById('monthlyIncomeInput').value) || 0;
+      var rows = document.querySelectorAll('.budget-row'), currentTotal = 0, savingRowInput = null;
+      rows.forEach(r => {
+        var name = r.querySelector('.cat-name').value;
+        var limitInput = r.querySelector('.cat-limit');
+        if (name.indexOf('ادخار') !== -1 || name.indexOf('طوارئ') !== -1 || name.indexOf('استثمار') !== -1) {
+          savingRowInput = limitInput;
+        } else {
+          currentTotal += parseFloat(limitInput.value) || 0;
+        }
+      });
+      if (!savingRowInput && rows.length > 0) savingRowInput = rows[rows.length - 1].querySelector('.cat-limit');
+      if (savingRowInput) {
+        savingRowInput.value = Math.max(0, targetIncome - currentTotal);
+        recalculateBudgetBalance();
+      }
+    }
+
+    function suggestAIBudget() {
+      var income = parseFloat(document.getElementById('monthlyIncomeInput').value) || 13500;
+      var food = Math.round(income * 0.35), housing = Math.round(income * 0.22), school = Math.round(income * 0.12), transport = Math.round(income * 0.10), health = Math.round(income * 0.06);
+      var savings = income - (food + housing + school + transport + health);
+      renderEditableBudgets([
+        { category: 'الأكل وحاجيات المنزل 🛒', limit: food },
+        { category: 'سكن وفواتير وخدمات 🏠', limit: housing },
+        { category: 'واجبات المدرسة والتعليم 🎒', limit: school },
+        { category: 'تنقل ومحروقات وصيانة 🚗', limit: transport },
+        { category: 'صحة وتطبيب وصيدلية 💊', limit: health },
+        { category: 'ادخار وطوارئ واستثمار 💎', limit: savings }
+      ]);
+    }
+
+    async function saveAllBudgets() {
+      var rows = document.querySelectorAll('.budget-row'), updated = [];
+      rows.forEach(r => {
+        var cat = r.querySelector('.cat-name').value.trim();
+        var limit = parseFloat(r.querySelector('.cat-limit').value) || 0;
+        if (cat) updated.push({ category: cat, limit: limit });
+      });
+
+      var btn = document.getElementById('saveBudgetBtn');
+      btn.innerText = 'جاري الحفظ...';
+      btn.disabled = true;
+
+      await fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'updateBudgets', budgets: updated })
+      });
+
+      btn.innerText = 'حفظ وتطبيق';
+      btn.disabled = false;
+      closeBudgetModal();
+      showToast('تم تحديث الميزانية', 'تم تطبيق أسقف الأبواب بنجاح.');
+      loadData();
+    }
+
+    async function confirmReset() {
+      if (confirm('هل ترغب في أرشفة بيانات هذا الشهر بالكامل والبدء بشهر جديد بنظافة؟ (البيانات محفوظة بالأرشيف)')) {
+        await fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'archiveAndReset' })
+        });
+        showToast('شهر جديد مبارك 🌟', 'تمت أرشفة مصاريف الشهر وبدء دورة جديدة.');
+        loadData();
+      }
+    }
+
+    window.onload = loadData;
   </script>
 </body>
 </html>
