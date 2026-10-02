@@ -115,7 +115,7 @@
         <h2 class="text-sm font-extrabold text-slate-900 flex items-center gap-2">
           <span class="text-amber-500">✍️</span> تسجيل مصروف جديد
         </h2>
-        <!-- زر الميكروفون المباشر الأصلي بدون أي وسيط -->
+        <!-- زر الميكروفون المباشر -->
         <button type="button" id="voiceBtn" onclick="toggleVoiceRecognition()" class="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-sm active:scale-95 transition">
           <span id="voiceIcon">🎙️</span> <span id="voiceText">تحدث للتسجيل</span>
         </button>
@@ -317,7 +317,6 @@
   </div>
 
   <script>
-    // رابط السكريبت الخاص بك كـ API
     const API_URL = "https://script.google.com/macros/s/AKfycbzBPivIuoXf74anBZ__opOBNcRRPUv0HSezlminp3MVwMDYN-lXewjvKWg-fOjprT_k/exec";
 
     let globalData = null;
@@ -343,16 +342,20 @@
       }, 3500);
     }
 
-    // قراءة البيانات عبر API
-    async function loadData() {
-      try {
-        const response = await fetch(`${API_URL}?action=getData`);
-        const data = await response.json();
-        renderData(data);
-      } catch (err) {
-        console.error("Fetch Error:", err);
-      }
+    // قراءة البيانات بطريقة JSONP (لتفادي قيود CORS تماماً)
+    function loadData() {
+      const script = document.createElement('script');
+      script.src = `${API_URL}?action=getData&callback=handleDashboardResponse&t=${new Date().getTime()}`;
+      document.body.appendChild(script);
+      script.onload = () => script.remove();
     }
+
+    // استقبال رد البيانات من خادم Google ورسم الشاشات
+    window.handleDashboardResponse = function(data) {
+      if (data && data.budgets) {
+        renderData(data);
+      }
+    };
 
     function quickFill(catKeyword, amount, note) {
       document.getElementById('amountInput').value = amount;
@@ -430,7 +433,7 @@
     }
 
     // ==========================================
-    // محرك التعرف الصوتي المباشر 100% (Native Web Speech)
+    // محرك التعرف الصوتي المباشر 100%
     // ==========================================
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
@@ -560,6 +563,8 @@
       try {
         await fetch(API_URL, {
           method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify({
             action: 'addExpense',
             category: category,
@@ -575,7 +580,7 @@
         btn.disabled = false;
         
         showToast('✅ تم التسجيل بنجاح', `تم اقتطاع ${amount} د.م من (${category}) بواسطة ${spentBy}.`);
-        loadData();
+        setTimeout(loadData, 1200);
       } catch (err) {
         btn.innerHTML = originalBtnText;
         btn.disabled = false;
@@ -587,10 +592,12 @@
       if (confirm(`هل أنت متأكد من حذف هذا المصروف بقيمة (${amount} د.م) والتراجع عنه؟`)) {
         await fetch(API_URL, {
           method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify({ action: 'deleteExpense', id: id })
         });
         showToast('تم الحذف بنجاح', `تم استرجاع مبلغ ${amount} د.م.`);
-        loadData();
+        setTimeout(loadData, 1200);
       }
     }
 
@@ -736,7 +743,7 @@
       } else {
         box.className = "p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold bg-rose-50 border-rose-200 text-rose-800";
         diffTag.className = "px-2 py-0.5 rounded-lg text-[11px] bg-rose-100 text-rose-900";
-        diffTag.innerHTML = `⚠️ تجاوزت الراتب بـ: ${Math.abs(diff).toLocaleString()} د.م`;
+        diffTag.innerHTML = `⚠️️ تجاوزت الراتب بـ: ${Math.abs(diff).toLocaleString()} د.م`;
       }
     }
 
@@ -787,6 +794,8 @@
 
       await fetch(API_URL, {
         method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: 'updateBudgets', budgets: updated })
       });
 
@@ -794,17 +803,19 @@
       btn.disabled = false;
       closeBudgetModal();
       showToast('تم تحديث الميزانية', 'تم تطبيق أسقف الأبواب بنجاح.');
-      loadData();
+      setTimeout(loadData, 1200);
     }
 
     async function confirmReset() {
       if (confirm('هل ترغب في أرشفة بيانات هذا الشهر بالكامل والبدء بشهر جديد بنظافة؟ (البيانات محفوظة بالأرشيف)')) {
         await fetch(API_URL, {
           method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify({ action: 'archiveAndReset' })
         });
         showToast('شهر جديد مبارك 🌟', 'تمت أرشفة مصاريف الشهر وبدء دورة جديدة.');
-        loadData();
+        setTimeout(loadData, 1200);
       }
     }
 
