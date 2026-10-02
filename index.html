@@ -22,9 +22,11 @@
   </style>
 </head>
 <body>
+  <!-- تفعيل أذونات الصوت والميكروفون الصريحة لـ iframe -->
   <iframe 
     src="https://script.google.com/macros/s/AKfycbzBPivIuoXf74anBZ__opOBNcRRPUv0HSezlminp3MVwMDYN-lXewjvKWg-fOjprT_k/exec" 
-    allow="microphone; camera" 
+    allow="microphone; camera; speech-recognition"
+    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
     allowfullscreen>
   </iframe>
 </body>
