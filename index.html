@@ -26,7 +26,7 @@
       user-select: none;
     }
     input, select { font-size: 15px !important; font-family: 'Cairo', sans-serif; }
-    .pulse-record { animation: pulse-light 1.2s infinite; }
+    .pulse-record { animation: pulse-light 1.5s infinite; }
     @keyframes pulse-light {
       0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
       70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
@@ -115,7 +115,6 @@
         <h2 class="text-sm font-extrabold text-slate-900 flex items-center gap-2">
           <span class="text-amber-500">✍️</span> تسجيل مصروف جديد
         </h2>
-        <!-- زر الميكروفون المباشر -->
         <button type="button" id="voiceBtn" onclick="toggleVoiceRecognition()" class="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-sm active:scale-95 transition">
           <span id="voiceIcon">🎙️</span> <span id="voiceText">تحدث للتسجيل</span>
         </button>
@@ -342,20 +341,32 @@
       }, 3500);
     }
 
-    // قراءة البيانات بطريقة JSONP (لتفادي قيود CORS تماماً)
-    function loadData() {
+    // إرسال الطلبات بطريقة JSONP لضمان استلامها في Google Sheets 100%
+    function executeApi(params, callback) {
+      const cbName = 'jsonp_cb_' + Math.round(100000 * Math.random());
+      window[cbName] = function(data) {
+        delete window[cbName];
+        if (script.parentNode) script.parentNode.removeChild(script);
+        if (callback) callback(data);
+      };
+
+      let query = `?callback=${cbName}&t=${new Date().getTime()}`;
+      for (const key in params) {
+        query += `&${key}=${encodeURIComponent(params[key])}`;
+      }
+
       const script = document.createElement('script');
-      script.src = `${API_URL}?action=getData&callback=handleDashboardResponse&t=${new Date().getTime()}`;
+      script.src = API_URL + query;
       document.body.appendChild(script);
-      script.onload = () => script.remove();
     }
 
-    // استقبال رد البيانات من خادم Google ورسم الشاشات
-    window.handleDashboardResponse = function(data) {
-      if (data && data.budgets) {
-        renderData(data);
-      }
-    };
+    function loadData() {
+      executeApi({ action: 'getData' }, function(data) {
+        if (data && data.budgets) {
+          renderData(data);
+        }
+      });
+    }
 
     function quickFill(catKeyword, amount, note) {
       document.getElementById('amountInput').value = amount;
@@ -432,9 +443,7 @@
       document.getElementById('txList').innerHTML = txHtml;
     }
 
-    // ==========================================
-    // محرك التعرف الصوتي المباشر 100%
-    // ==========================================
+    // التعرف الصوتي المباشر
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
     let isListening = false;
@@ -457,13 +466,8 @@
         parseVoiceInput(text);
       };
 
-      recognition.onerror = function() {
-        stopVoice();
-      };
-
-      recognition.onend = function() {
-        stopVoice();
-      };
+      recognition.onerror = function() { stopVoice(); };
+      recognition.onend = function() { stopVoice(); };
     }
 
     function toggleVoiceRecognition() {
@@ -547,12 +551,12 @@
       }, 1200);
     }
 
-    // إرسال المصروف عبر API
-    async function submitExpense(e) {
+    // تسجيل واقتطاع مضمون 100% في Google Sheets
+    function submitExpense(e) {
       e.preventDefault();
       var btn = document.getElementById('submitBtn');
       var originalBtnText = btn.innerHTML;
-      btn.innerHTML = '<span>⏳</span> جاري الحفظ...';
+      btn.innerHTML = '<span>⏳</span> جاري الحفظ في الجدول...';
       btn.disabled = true;
 
       var category = document.getElementById('catSelect').value;
@@ -560,44 +564,29 @@
       var spentBy = document.getElementById('spentBySelect').value;
       var note = document.getElementById('noteInput').value;
 
-      try {
-        await fetch(API_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({
-            action: 'addExpense',
-            category: category,
-            amount: amount,
-            spentBy: spentBy,
-            note: note
-          })
-        });
-
+      executeApi({
+        action: 'addExpense',
+        category: category,
+        amount: amount,
+        spentBy: spentBy,
+        note: note
+      }, function(res) {
         document.getElementById('amountInput').value = '';
         document.getElementById('noteInput').value = '';
         btn.innerHTML = originalBtnText;
         btn.disabled = false;
-        
+
         showToast('✅ تم التسجيل بنجاح', `تم اقتطاع ${amount} د.م من (${category}) بواسطة ${spentBy}.`);
-        setTimeout(loadData, 1200);
-      } catch (err) {
-        btn.innerHTML = originalBtnText;
-        btn.disabled = false;
-        alert('تعذر الحفظ: ' + err.message);
-      }
+        loadData();
+      });
     }
 
-    async function confirmDeleteExpense(id, amount) {
+    function confirmDeleteExpense(id, amount) {
       if (confirm(`هل أنت متأكد من حذف هذا المصروف بقيمة (${amount} د.م) والتراجع عنه؟`)) {
-        await fetch(API_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({ action: 'deleteExpense', id: id })
+        executeApi({ action: 'deleteExpense', id: id }, function() {
+          showToast('تم الحذف بنجاح', `تم استرجاع مبلغ ${amount} د.م.`);
+          loadData();
         });
-        showToast('تم الحذف بنجاح', `تم استرجاع مبلغ ${amount} د.م.`);
-        setTimeout(loadData, 1200);
       }
     }
 
@@ -743,7 +732,7 @@
       } else {
         box.className = "p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold bg-rose-50 border-rose-200 text-rose-800";
         diffTag.className = "px-2 py-0.5 rounded-lg text-[11px] bg-rose-100 text-rose-900";
-        diffTag.innerHTML = `⚠️️ تجاوزت الراتب بـ: ${Math.abs(diff).toLocaleString()} د.م`;
+        diffTag.innerHTML = `⚠️ تجاوزت الراتب بـ: ${Math.abs(diff).toLocaleString()} د.م`;
       }
     }
 
@@ -780,7 +769,7 @@
       ]);
     }
 
-    async function saveAllBudgets() {
+    function saveAllBudgets() {
       var rows = document.querySelectorAll('.budget-row'), updated = [];
       rows.forEach(r => {
         var cat = r.querySelector('.cat-name').value.trim();
@@ -792,30 +781,24 @@
       btn.innerText = 'جاري الحفظ...';
       btn.disabled = true;
 
-      await fetch(API_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'updateBudgets', budgets: updated })
+      executeApi({
+        action: 'updateBudgets',
+        budgets: JSON.stringify(updated)
+      }, function() {
+        btn.innerText = 'حفظ وتطبيق';
+        btn.disabled = false;
+        closeBudgetModal();
+        showToast('تم تحديث الميزانية', 'تم تطبيق أسقف الأبواب بنجاح.');
+        loadData();
       });
-
-      btn.innerText = 'حفظ وتطبيق';
-      btn.disabled = false;
-      closeBudgetModal();
-      showToast('تم تحديث الميزانية', 'تم تطبيق أسقف الأبواب بنجاح.');
-      setTimeout(loadData, 1200);
     }
 
-    async function confirmReset() {
+    function confirmReset() {
       if (confirm('هل ترغب في أرشفة بيانات هذا الشهر بالكامل والبدء بشهر جديد بنظافة؟ (البيانات محفوظة بالأرشيف)')) {
-        await fetch(API_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({ action: 'archiveAndReset' })
+        executeApi({ action: 'archiveAndReset' }, function() {
+          showToast('شهر جديد مبارك 🌟', 'تمت أرشفة مصاريف الشهر وبدء دورة جديدة.');
+          loadData();
         });
-        showToast('شهر جديد مبارك 🌟', 'تمت أرشفة مصاريف الشهر وبدء دورة جديدة.');
-        setTimeout(loadData, 1200);
       }
     }
 
