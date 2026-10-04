@@ -7,32 +7,13 @@
   
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="الميزانية">
   <meta name="theme-color" content="#fef9c3">
-
-  <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/2382/2382461.png">
-  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2382/2382461.png">
-  <link rel="manifest" href="manifest.json">
 
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700;800;900&display=swap" rel="stylesheet">
 
   <style>
-    * { 
-      box-sizing: border-box; 
-      margin: 0; 
-      padding: 0; 
-      font-family: 'Cairo', sans-serif; 
-    }
-    
-    html, body { 
-      width: 100%; 
-      height: 100%; 
-      overflow: hidden; 
-      background-color: #fef9c3; 
-      display: flex; 
-      flex-direction: column; 
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background-color: #fef9c3; display: flex; flex-direction: column; }
 
     .top-voice-bar {
       width: 100%;
@@ -77,13 +58,10 @@
       flex-shrink: 0;
     }
 
-    .voice-btn-top:active { 
-      transform: scale(0.95); 
-    }
+    .voice-btn-top:active { transform: scale(0.95); }
 
     .recording-active {
       background: linear-gradient(135deg, #ef4444, #dc2626) !important;
-      box-shadow: 0 3px 12px rgba(239, 68, 68, 0.5) !important;
       animation: pulse-red 1.2s infinite;
     }
 
@@ -93,24 +71,12 @@
       100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
     }
 
-    .iframe-container { 
-      flex: 1; 
-      width: 100%; 
-      height: 100%; 
-      position: relative; 
-    }
-
-    iframe { 
-      width: 100%; 
-      height: 100%; 
-      border: none; 
-      display: block; 
-    }
+    .iframe-container { flex: 1; width: 100%; height: 100%; position: relative; }
+    iframe { width: 100%; height: 100%; border: none; display: block; }
   </style>
 </head>
 <body>
 
-  <!-- شريط المساعد الصوتي العلوي -->
   <div class="top-voice-bar">
     <div class="app-title">
       <span>🎙️</span>
@@ -123,7 +89,6 @@
     </button>
   </div>
 
-  <!-- إطار تطبيق الميزانية -->
   <div class="iframe-container">
     <iframe 
       id="appFrame"
@@ -135,12 +100,6 @@
   </div>
 
   <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('data:text/javascript;base64,c2VsZi5hZGRFdmVudExpc3RlbmVyKCdmaXRjaCcsIGZ1bmN0aW9uKGV2ZW50KSB7fSk7').catch(() => {});
-      });
-    }
-
     const frame = document.getElementById('appFrame');
     const directVoiceBtn = document.getElementById('directVoiceBtn');
     const micBtnText = document.getElementById('micBtnText');
@@ -149,7 +108,8 @@
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
     let isListening = false;
-    let resetTimer = null;
+
+    const BASE_APP_URL = "https://script.google.com/macros/s/AKfycbzBPivIuoXf74anBZ__opOBNcRRPUv0HSezlminp3MVwMDYN-lXewjvKWg-fOjprT_k/exec";
 
     if (SpeechRecognition) {
       recognition = new SpeechRecognition();
@@ -158,7 +118,6 @@
 
       recognition.onstart = function() {
         isListening = true;
-        clearTimeout(resetTimer);
         directVoiceBtn.classList.add('recording-active');
         micBtnText.innerText = "توقف";
         headerStatusText.innerText = "🎧 جارٍ الاستماع...";
@@ -170,14 +129,13 @@
         headerStatusText.innerText = "✅ " + text;
         headerStatusText.style.color = "#15803d";
         
-        // إرسال النص إلى التطبيق الداخلي
-        sendVoiceMessage(text);
+        // تمرير النص مباشرة كـ Parameter في رابط الإطار ليقرأه التطبيق عند التعبئة الفورية
+        frame.src = BASE_APP_URL + "?v=" + encodeURIComponent(text);
 
-        clearTimeout(resetTimer);
-        resetTimer = setTimeout(() => {
+        setTimeout(() => {
           headerStatusText.innerText = "المساعد الصوتي المباشر";
           headerStatusText.style.color = "#854d0e";
-        }, 3500);
+        }, 3000);
       };
 
       recognition.onerror = function() {
@@ -191,32 +149,6 @@
       };
     }
 
-    // دالة إرسال النص للإطار الداخلي
-    function sendVoiceMessage(text) {
-      const payloadObj = { type: 'VOICE_INPUT', text: text };
-      const payloadStr = JSON.stringify(payloadObj);
-
-      // 1. الإرسال لنافذة الـ iframe
-      try {
-        if (frame && frame.contentWindow) {
-          frame.contentWindow.postMessage(payloadObj, '*');
-          frame.contentWindow.postMessage(payloadStr, '*');
-          frame.contentWindow.postMessage(text, '*');
-        }
-      } catch(e) {}
-
-      // 2. إرسال شامل لجميع الإطارات المفتوحة
-      try {
-        for (let i = 0; i < window.frames.length; i++) {
-          try {
-            window.frames[i].postMessage(payloadObj, '*');
-            window.frames[i].postMessage(payloadStr, '*');
-            window.frames[i].postMessage(text, '*');
-          } catch(err) {}
-        }
-      } catch(e) {}
-    }
-
     function startDirectVoice() {
       if (!SpeechRecognition) {
         alert('يرجى فتح الصفحة عبر متصفح Google Chrome.');
@@ -228,9 +160,7 @@
       } else {
         try {
           recognition.start();
-        } catch(e) {
-          console.error(e);
-        }
+        } catch(e) {}
       }
     }
 
