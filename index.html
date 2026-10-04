@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>ميزانية العائلة</title>
-
+  
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -18,8 +18,21 @@
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700;800;900&display=swap" rel="stylesheet">
 
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background-color: #fef9c3; display: flex; flex-direction: column; }
+    * { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+      font-family: 'Cairo', sans-serif; 
+    }
+    
+    html, body { 
+      width: 100%; 
+      height: 100%; 
+      overflow: hidden; 
+      background-color: #fef9c3; 
+      display: flex; 
+      flex-direction: column; 
+    }
 
     .top-voice-bar {
       width: 100%;
@@ -42,7 +55,6 @@
       align-items: center;
       gap: 6px;
       overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
       max-width: 60%;
     }
@@ -65,7 +77,9 @@
       flex-shrink: 0;
     }
 
-    .voice-btn-top:active { transform: scale(0.95); }
+    .voice-btn-top:active { 
+      transform: scale(0.95); 
+    }
 
     .recording-active {
       background: linear-gradient(135deg, #ef4444, #dc2626) !important;
@@ -79,12 +93,24 @@
       100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
     }
 
-    .iframe-container { flex: 1; width: 100%; height: 100%; position: relative; }
-    iframe { width: 100%; height: 100%; border: none; display: block; }
+    .iframe-container { 
+      flex: 1; 
+      width: 100%; 
+      height: 100%; 
+      position: relative; 
+    }
+
+    iframe { 
+      width: 100%; 
+      height: 100%; 
+      border: none; 
+      display: block; 
+    }
   </style>
 </head>
 <body>
 
+  <!-- شريط المساعد الصوتي العلوي -->
   <div class="top-voice-bar">
     <div class="app-title">
       <span>🎙️</span>
@@ -97,16 +123,24 @@
     </button>
   </div>
 
+  <!-- إطار تطبيق الميزانية -->
   <div class="iframe-container">
     <iframe 
       id="appFrame"
       name="appFrame"
       src="https://script.google.com/macros/s/AKfycbzBPivIuoXf74anBZ__opOBNcRRPUv0HSezlminp3MVwMDYN-lXewjvKWg-fOjprT_k/exec" 
+      allow="microphone; camera" 
       allowfullscreen>
     </iframe>
   </div>
 
   <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('data:text/javascript;base64,c2VsZi5hZGRFdmVudExpc3RlbmVyKCdmaXRjaCcsIGZ1bmN0aW9uKGV2ZW50KSB7fSk7').catch(() => {});
+      });
+    }
+
     const frame = document.getElementById('appFrame');
     const directVoiceBtn = document.getElementById('directVoiceBtn');
     const micBtnText = document.getElementById('micBtnText');
@@ -115,7 +149,7 @@
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
     let isListening = false;
-    let baseFrameSrc = frame.src.split('#')[0];
+    let resetTimer = null;
 
     if (SpeechRecognition) {
       recognition = new SpeechRecognition();
@@ -124,39 +158,79 @@
 
       recognition.onstart = function() {
         isListening = true;
+        clearTimeout(resetTimer);
         directVoiceBtn.classList.add('recording-active');
         micBtnText.innerText = "توقف";
-        headerStatusText.innerText = "🎧 استمع إليك...";
+        headerStatusText.innerText = "🎧 جارٍ الاستماع...";
         headerStatusText.style.color = "#dc2626";
       };
 
       recognition.onresult = function(event) {
         const text = event.results[0][0].transcript;
-        headerStatusText.innerText = text;
+        headerStatusText.innerText = "✅ " + text;
         headerStatusText.style.color = "#15803d";
         
-        // تمرير النص بطريقة الـ Hash لتفادي جدار حماية المتصفح نهائياً
-        frame.src = baseFrameSrc + '#voice=' + encodeURIComponent(text) + '&t=' + new Date().getTime();
+        // إرسال النص إلى التطبيق الداخلي
+        sendVoiceMessage(text);
 
-        setTimeout(() => {
+        clearTimeout(resetTimer);
+        resetTimer = setTimeout(() => {
           headerStatusText.innerText = "المساعد الصوتي المباشر";
           headerStatusText.style.color = "#854d0e";
-        }, 3000);
+        }, 3500);
       };
 
-      recognition.onerror = function() { stopRecording(); };
-      recognition.onend = function() { stopRecording(); };
+      recognition.onerror = function() {
+        headerStatusText.innerText = "⚠️ حاول مرة أخرى";
+        headerStatusText.style.color = "#b45309";
+        stopRecording();
+      };
+
+      recognition.onend = function() {
+        stopRecording();
+      };
+    }
+
+    // دالة إرسال النص للإطار الداخلي
+    function sendVoiceMessage(text) {
+      const payloadObj = { type: 'VOICE_INPUT', text: text };
+      const payloadStr = JSON.stringify(payloadObj);
+
+      // 1. الإرسال لنافذة الـ iframe
+      try {
+        if (frame && frame.contentWindow) {
+          frame.contentWindow.postMessage(payloadObj, '*');
+          frame.contentWindow.postMessage(payloadStr, '*');
+          frame.contentWindow.postMessage(text, '*');
+        }
+      } catch(e) {}
+
+      // 2. إرسال شامل لجميع الإطارات المفتوحة
+      try {
+        for (let i = 0; i < window.frames.length; i++) {
+          try {
+            window.frames[i].postMessage(payloadObj, '*');
+            window.frames[i].postMessage(payloadStr, '*');
+            window.frames[i].postMessage(text, '*');
+          } catch(err) {}
+        }
+      } catch(e) {}
     }
 
     function startDirectVoice() {
       if (!SpeechRecognition) {
-        alert('استخدم متصفح Google Chrome.');
+        alert('يرجى فتح الصفحة عبر متصفح Google Chrome.');
         return;
       }
+
       if (isListening) {
         recognition.stop();
       } else {
-        try { recognition.start(); } catch(e) {}
+        try {
+          recognition.start();
+        } catch(e) {
+          console.error(e);
+        }
       }
     }
 
